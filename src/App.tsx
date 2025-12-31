@@ -24,6 +24,8 @@ import SECBackfill from './pages/SECBackfill'
 import SECDailyIndices from './pages/SECDailyIndices'
 import Settings from './pages/Settings'
 import RedisRules from './pages/RedisRules'
+import AlpacaAccountCreate from './pages/AlpacaAccountCreate'
+import AlpacaOnboardingTest from './pages/AlpacaOnboardingTest'
 import './App.css'
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000'
@@ -48,6 +50,7 @@ interface ClerkUser {
   plan: string | null
   isAdmin: boolean
   hasTradingAccess: boolean
+  hasRetailApiAccess: boolean
 }
 
 interface AlpacaAccount {
@@ -177,6 +180,38 @@ function Dashboard() {
       } : null)
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to update trading access')
+    } finally {
+      setUpdating(null)
+    }
+  }
+
+  const toggleRetailApi = async (userId: string, currentValue: boolean) => {
+    setUpdating(`retailapi-${userId}`)
+    try {
+      const token = await getToken()
+      const response = await fetch(`${API_BASE}/api/admin/users/${userId}/retail-api-access`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ hasRetailApiAccess: !currentValue })
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to update')
+      }
+
+      // Update local state
+      setStats(prev => prev ? {
+        ...prev,
+        allUsers: prev.allUsers.map(u =>
+          u.id === userId ? { ...u, hasRetailApiAccess: !currentValue } : u
+        )
+      } : null)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to update retail API access')
     } finally {
       setUpdating(null)
     }
@@ -349,6 +384,7 @@ function Dashboard() {
                 <th>Name</th>
                 <th>Admin</th>
                 <th>Trading</th>
+                <th>Retail API</th>
                 <th>Waitlist</th>
                 <th>Created</th>
                 <th></th>
@@ -375,6 +411,15 @@ function Dashboard() {
                       disabled={updating === `trading-${user.id}`}
                     >
                       {updating === `trading-${user.id}` ? '...' : user.hasTradingAccess ? 'Yes' : 'No'}
+                    </button>
+                  </td>
+                  <td>
+                    <button
+                      className={`toggle-btn ${user.hasRetailApiAccess ? 'active' : ''}`}
+                      onClick={() => toggleRetailApi(user.id, user.hasRetailApiAccess)}
+                      disabled={updating === `retailapi-${user.id}`}
+                    >
+                      {updating === `retailapi-${user.id}` ? '...' : user.hasRetailApiAccess ? 'Yes' : 'No'}
                     </button>
                   </td>
                   <td>{user.onWaitlist ? 'Yes' : 'No'}</td>
@@ -483,6 +528,8 @@ function App() {
     if (path === '/sec-daily-indices') return 'SEC Daily Indices'
     if (path === '/settings') return 'Settings'
     if (path === '/cache-rules') return 'Cache Rules'
+    if (path === '/alpaca-create') return 'Alpaca Onboarding Test'
+    if (path === '/alpaca-create-manual') return 'Create Alpaca Account (Manual)'
     return 'Dashboard'
   }
 
@@ -595,6 +642,30 @@ function App() {
                 </svg>
                 Cache Rules
               </Link>
+              <Link
+                to="/alpaca-create"
+                className={`sidebar-link ${path === '/alpaca-create' ? 'active' : ''}`}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+                  <rect x="9" y="3" width="6" height="4" rx="2" />
+                  <path d="M9 12h6" />
+                  <path d="M9 16h6" />
+                </svg>
+                Alpaca Test
+              </Link>
+              <Link
+                to="/alpaca-create-manual"
+                className={`sidebar-link ${path === '/alpaca-create-manual' ? 'active' : ''}`}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="8.5" cy="7" r="4" />
+                  <line x1="20" y1="8" x2="20" y2="14" />
+                  <line x1="23" y1="11" x2="17" y2="11" />
+                </svg>
+                Alpaca Manual
+              </Link>
             </nav>
           </aside>
           <div className="admin-main">
@@ -612,6 +683,8 @@ function App() {
                 <Route path="/sec-daily-indices" element={<SECDailyIndices />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/cache-rules" element={<RedisRules />} />
+                <Route path="/alpaca-create" element={<AlpacaOnboardingTest />} />
+                <Route path="/alpaca-create-manual" element={<AlpacaAccountCreate />} />
               </Routes>
             </main>
           </div>

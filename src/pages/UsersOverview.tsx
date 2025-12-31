@@ -11,6 +11,8 @@ interface ClerkUser {
   lastSignInAt: number | null
   isAdmin: boolean
   onWaitlist: boolean
+  hasTradingAccess: boolean
+  hasRetailApiAccess: boolean
 }
 
 interface AlpacaAccount {
@@ -63,6 +65,7 @@ function UsersOverview() {
   const [saving, setSaving] = useState(false)
   const [deletingStripe, setDeletingStripe] = useState<UnifiedUser | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [updating, setUpdating] = useState<string | null>(null)
 
   useEffect(() => {
     fetchUsers()
@@ -304,6 +307,45 @@ function UsersOverview() {
     }
   }
 
+  const toggleRetailApi = async (userId: string, currentValue: boolean) => {
+    setUpdating(`retailapi-${userId}`)
+    try {
+      const token = await getToken()
+      const response = await fetch(`${API_BASE}/api/admin/users/${userId}/retail-api-access`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ hasRetailApiAccess: !currentValue })
+      })
+
+      if (!response.ok) {
+        const err = await response.json()
+        throw new Error(err.error || 'Failed to update')
+      }
+
+      // Update local state
+      setData(prev => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          users: prev.users.map(u => {
+            if (u.clerk?.id !== userId) return u
+            return {
+              ...u,
+              clerk: u.clerk ? { ...u.clerk, hasRetailApiAccess: !currentValue } : null
+            }
+          })
+        }
+      })
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to update retail API access')
+    } finally {
+      setUpdating(null)
+    }
+  }
+
   const filteredUsers = data?.users.filter(user => {
     // Apply platform filter
     if (filter === 'clerk' && !user.clerk) return false
@@ -408,6 +450,7 @@ function UsersOverview() {
               <th>Email</th>
               <th>Name</th>
               <th style={{ textAlign: 'center' }}>Clerk</th>
+              <th style={{ textAlign: 'center' }}>Retail API</th>
               <th style={{ textAlign: 'center' }}>Alpaca</th>
               <th style={{ textAlign: 'center' }}>Stripe</th>
               <th style={{ textAlign: 'center' }}>Actions</th>
@@ -416,7 +459,7 @@ function UsersOverview() {
           <tbody>
             {filteredUsers.length === 0 ? (
               <tr>
-                <td colSpan={6} style={{ textAlign: 'center', color: '#999', padding: 24 }}>
+                <td colSpan={7} style={{ textAlign: 'center', color: '#999', padding: 24 }}>
                   No users found
                 </td>
               </tr>
@@ -444,6 +487,20 @@ function UsersOverview() {
                       >
                         {user.clerk.isAdmin ? 'Admin' : 'User'}
                       </span>
+                    ) : (
+                      <span style={{ color: '#ccc' }}>-</span>
+                    )}
+                  </td>
+                  <td style={{ textAlign: 'center' }}>
+                    {user.clerk ? (
+                      <button
+                        className={`toggle-btn ${user.clerk.hasRetailApiAccess ? 'active' : ''}`}
+                        onClick={() => toggleRetailApi(user.clerk!.id, user.clerk!.hasRetailApiAccess)}
+                        disabled={updating === `retailapi-${user.clerk.id}`}
+                        style={{ fontSize: 11 }}
+                      >
+                        {updating === `retailapi-${user.clerk.id}` ? '...' : user.clerk.hasRetailApiAccess ? 'Yes' : 'No'}
+                      </button>
                     ) : (
                       <span style={{ color: '#ccc' }}>-</span>
                     )}

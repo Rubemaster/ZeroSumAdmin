@@ -25,6 +25,41 @@ interface CacheRules {
   sec: {
     filings: number
   }
+  alphaVantage: {
+    quote: number
+    timeSeries: number
+  }
+  twelveData: {
+    quote: number
+    series: number
+  }
+  fmp: {
+    quote: number
+    profile: number
+  }
+  tiingo: {
+    quote: number
+    meta: number
+  }
+  fred: {
+    series: number
+    search: number
+  }
+  exchangeRate: {
+    rates: number
+    pair: number
+  }
+  newsApi: {
+    headlines: number
+    business: number
+  }
+  marketstack: {
+    eod: number
+    intraday: number
+  }
+  nasdaqDataLink: {
+    dataset: number
+  }
   default: number
 }
 
@@ -33,6 +68,15 @@ interface CacheStats {
   polygon: { count: number; size: number }
   yahoo: { count: number; size: number }
   sec: { count: number; size: number }
+  alphaVantage: { count: number; size: number }
+  twelveData: { count: number; size: number }
+  fmp: { count: number; size: number }
+  tiingo: { count: number; size: number }
+  fred: { count: number; size: number }
+  exchangeRate: { count: number; size: number }
+  newsApi: { count: number; size: number }
+  marketstack: { count: number; size: number }
+  nasdaqDataLink: { count: number; size: number }
   other: { count: number; size: number }
 }
 
@@ -47,7 +91,7 @@ const DURATION_OPTIONS = [
   { label: '1w', value: 604800 },
 ]
 
-const COLORS = ['#333', '#555', '#777', '#999', '#bbb']
+const COLORS = ['#333', '#555', '#777', '#999', '#bbb', '#2196f3', '#4caf50', '#ff9800', '#e91e63', '#9c27b0', '#00bcd4', '#795548', '#607d8b']
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B'
@@ -197,10 +241,11 @@ function RedisRules() {
 
   const updateRule = (client: keyof Omit<CacheRules, 'default'>, key: string, value: number) => {
     if (!rules) return
+    const currentClient = rules[client] as Record<string, number> | undefined
     setRules({
       ...rules,
       [client]: {
-        ...rules[client],
+        ...(currentClient || {}),
         [key]: value
       }
     })
@@ -251,14 +296,33 @@ function RedisRules() {
   }
 
   const chartData = stats ? [
-    { name: 'Finnhub', size: stats.finnhub.size, count: stats.finnhub.count },
-    { name: 'Polygon', size: stats.polygon.size, count: stats.polygon.count },
-    { name: 'Yahoo', size: stats.yahoo.size, count: stats.yahoo.count },
-    { name: 'SEC', size: stats.sec.size, count: stats.sec.count },
-  ] : []
+    { name: 'Finnhub', size: stats.finnhub?.size || 0, count: stats.finnhub?.count || 0 },
+    { name: 'Polygon', size: stats.polygon?.size || 0, count: stats.polygon?.count || 0 },
+    { name: 'Yahoo', size: stats.yahoo?.size || 0, count: stats.yahoo?.count || 0 },
+    { name: 'SEC', size: stats.sec?.size || 0, count: stats.sec?.count || 0 },
+    { name: 'Alpha Vantage', size: stats.alphaVantage?.size || 0, count: stats.alphaVantage?.count || 0 },
+    { name: 'Twelve Data', size: stats.twelveData?.size || 0, count: stats.twelveData?.count || 0 },
+    { name: 'FMP', size: stats.fmp?.size || 0, count: stats.fmp?.count || 0 },
+    { name: 'Tiingo', size: stats.tiingo?.size || 0, count: stats.tiingo?.count || 0 },
+    { name: 'FRED', size: stats.fred?.size || 0, count: stats.fred?.count || 0 },
+    { name: 'FX Rates', size: stats.exchangeRate?.size || 0, count: stats.exchangeRate?.count || 0 },
+    { name: 'News API', size: stats.newsApi?.size || 0, count: stats.newsApi?.count || 0 },
+    { name: 'Marketstack', size: stats.marketstack?.size || 0, count: stats.marketstack?.count || 0 },
+    { name: 'Nasdaq', size: stats.nasdaqDataLink?.size || 0, count: stats.nasdaqDataLink?.count || 0 },
+  ].filter(d => d.size > 0 || d.count > 0) : []
 
-  const totalSize = stats ? stats.finnhub.size + stats.polygon.size + stats.yahoo.size + stats.sec.size : 0
-  const totalCount = stats ? stats.finnhub.count + stats.polygon.count + stats.yahoo.count + stats.sec.count : 0
+  const totalSize = stats ? (
+    (stats.finnhub?.size || 0) + (stats.polygon?.size || 0) + (stats.yahoo?.size || 0) + (stats.sec?.size || 0) +
+    (stats.alphaVantage?.size || 0) + (stats.twelveData?.size || 0) + (stats.fmp?.size || 0) + (stats.tiingo?.size || 0) +
+    (stats.fred?.size || 0) + (stats.exchangeRate?.size || 0) + (stats.newsApi?.size || 0) + (stats.marketstack?.size || 0) +
+    (stats.nasdaqDataLink?.size || 0)
+  ) : 0
+  const totalCount = stats ? (
+    (stats.finnhub?.count || 0) + (stats.polygon?.count || 0) + (stats.yahoo?.count || 0) + (stats.sec?.count || 0) +
+    (stats.alphaVantage?.count || 0) + (stats.twelveData?.count || 0) + (stats.fmp?.count || 0) + (stats.tiingo?.count || 0) +
+    (stats.fred?.count || 0) + (stats.exchangeRate?.count || 0) + (stats.newsApi?.count || 0) + (stats.marketstack?.count || 0) +
+    (stats.nasdaqDataLink?.count || 0)
+  ) : 0
 
   const rowStyle = {
     display: 'flex',
@@ -487,6 +551,242 @@ function RedisRules() {
           <DurationSelector value={rules.sec.filings} onChange={(v) => updateRule('sec', 'filings', v)} />
         </div>
       </div>
+
+      {/* Alpha Vantage Section */}
+      {rules.alphaVantage && (
+        <div style={{
+          background: '#fff',
+          border: '1px solid #e0e0e0',
+          borderRadius: 8,
+          padding: 20,
+          marginBottom: 16
+        }}>
+          <h3 style={{ marginTop: 0, marginBottom: 16 }}>Alpha Vantage</h3>
+          <div style={rowStyle}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={labelStyle}>Quote</span>
+              <ClearButton client="alphaVantage" type="quote" />
+            </div>
+            <DurationSelector value={rules.alphaVantage.quote} onChange={(v) => updateRule('alphaVantage', 'quote', v)} />
+          </div>
+          <div style={{ ...rowStyle, borderBottom: 'none' }}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={labelStyle}>Time Series</span>
+              <ClearButton client="alphaVantage" type="timeSeries" />
+            </div>
+            <DurationSelector value={rules.alphaVantage.timeSeries} onChange={(v) => updateRule('alphaVantage', 'timeSeries', v)} />
+          </div>
+        </div>
+      )}
+
+      {/* Twelve Data Section */}
+      {rules.twelveData && (
+        <div style={{
+          background: '#fff',
+          border: '1px solid #e0e0e0',
+          borderRadius: 8,
+          padding: 20,
+          marginBottom: 16
+        }}>
+          <h3 style={{ marginTop: 0, marginBottom: 16 }}>Twelve Data</h3>
+          <div style={rowStyle}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={labelStyle}>Quote</span>
+              <ClearButton client="twelveData" type="quote" />
+            </div>
+            <DurationSelector value={rules.twelveData.quote} onChange={(v) => updateRule('twelveData', 'quote', v)} />
+          </div>
+          <div style={{ ...rowStyle, borderBottom: 'none' }}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={labelStyle}>Series</span>
+              <ClearButton client="twelveData" type="series" />
+            </div>
+            <DurationSelector value={rules.twelveData.series} onChange={(v) => updateRule('twelveData', 'series', v)} />
+          </div>
+        </div>
+      )}
+
+      {/* FMP Section */}
+      {rules.fmp && (
+        <div style={{
+          background: '#fff',
+          border: '1px solid #e0e0e0',
+          borderRadius: 8,
+          padding: 20,
+          marginBottom: 16
+        }}>
+          <h3 style={{ marginTop: 0, marginBottom: 16 }}>Financial Modeling Prep</h3>
+          <div style={rowStyle}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={labelStyle}>Quote</span>
+              <ClearButton client="fmp" type="quote" />
+            </div>
+            <DurationSelector value={rules.fmp.quote} onChange={(v) => updateRule('fmp', 'quote', v)} />
+          </div>
+          <div style={{ ...rowStyle, borderBottom: 'none' }}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={labelStyle}>Profile</span>
+              <ClearButton client="fmp" type="profile" />
+            </div>
+            <DurationSelector value={rules.fmp.profile} onChange={(v) => updateRule('fmp', 'profile', v)} />
+          </div>
+        </div>
+      )}
+
+      {/* Tiingo Section */}
+      {rules.tiingo && (
+        <div style={{
+          background: '#fff',
+          border: '1px solid #e0e0e0',
+          borderRadius: 8,
+          padding: 20,
+          marginBottom: 16
+        }}>
+          <h3 style={{ marginTop: 0, marginBottom: 16 }}>Tiingo</h3>
+          <div style={rowStyle}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={labelStyle}>Quote</span>
+              <ClearButton client="tiingo" type="quote" />
+            </div>
+            <DurationSelector value={rules.tiingo.quote} onChange={(v) => updateRule('tiingo', 'quote', v)} />
+          </div>
+          <div style={{ ...rowStyle, borderBottom: 'none' }}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={labelStyle}>Meta</span>
+              <ClearButton client="tiingo" type="meta" />
+            </div>
+            <DurationSelector value={rules.tiingo.meta} onChange={(v) => updateRule('tiingo', 'meta', v)} />
+          </div>
+        </div>
+      )}
+
+      {/* FRED Section */}
+      {rules.fred && (
+        <div style={{
+          background: '#fff',
+          border: '1px solid #e0e0e0',
+          borderRadius: 8,
+          padding: 20,
+          marginBottom: 16
+        }}>
+          <h3 style={{ marginTop: 0, marginBottom: 16 }}>FRED (Federal Reserve)</h3>
+          <div style={rowStyle}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={labelStyle}>Series</span>
+              <ClearButton client="fred" type="series" />
+            </div>
+            <DurationSelector value={rules.fred.series} onChange={(v) => updateRule('fred', 'series', v)} />
+          </div>
+          <div style={{ ...rowStyle, borderBottom: 'none' }}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={labelStyle}>Search</span>
+              <ClearButton client="fred" type="search" />
+            </div>
+            <DurationSelector value={rules.fred.search} onChange={(v) => updateRule('fred', 'search', v)} />
+          </div>
+        </div>
+      )}
+
+      {/* Exchange Rate Section */}
+      {rules.exchangeRate && (
+        <div style={{
+          background: '#fff',
+          border: '1px solid #e0e0e0',
+          borderRadius: 8,
+          padding: 20,
+          marginBottom: 16
+        }}>
+          <h3 style={{ marginTop: 0, marginBottom: 16 }}>Exchange Rate API</h3>
+          <div style={rowStyle}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={labelStyle}>FX Rates</span>
+              <ClearButton client="exchangeRate" type="rates" />
+            </div>
+            <DurationSelector value={rules.exchangeRate.rates} onChange={(v) => updateRule('exchangeRate', 'rates', v)} />
+          </div>
+          <div style={{ ...rowStyle, borderBottom: 'none' }}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={labelStyle}>FX Pair</span>
+              <ClearButton client="exchangeRate" type="pair" />
+            </div>
+            <DurationSelector value={rules.exchangeRate.pair} onChange={(v) => updateRule('exchangeRate', 'pair', v)} />
+          </div>
+        </div>
+      )}
+
+      {/* News API Section */}
+      {rules.newsApi && (
+        <div style={{
+          background: '#fff',
+          border: '1px solid #e0e0e0',
+          borderRadius: 8,
+          padding: 20,
+          marginBottom: 16
+        }}>
+          <h3 style={{ marginTop: 0, marginBottom: 16 }}>News API</h3>
+          <div style={rowStyle}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={labelStyle}>Headlines</span>
+              <ClearButton client="newsApi" type="headlines" />
+            </div>
+            <DurationSelector value={rules.newsApi.headlines} onChange={(v) => updateRule('newsApi', 'headlines', v)} />
+          </div>
+          <div style={{ ...rowStyle, borderBottom: 'none' }}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={labelStyle}>Business</span>
+              <ClearButton client="newsApi" type="business" />
+            </div>
+            <DurationSelector value={rules.newsApi.business} onChange={(v) => updateRule('newsApi', 'business', v)} />
+          </div>
+        </div>
+      )}
+
+      {/* Marketstack Section */}
+      {rules.marketstack && (
+        <div style={{
+          background: '#fff',
+          border: '1px solid #e0e0e0',
+          borderRadius: 8,
+          padding: 20,
+          marginBottom: 16
+        }}>
+          <h3 style={{ marginTop: 0, marginBottom: 16 }}>Marketstack</h3>
+          <div style={rowStyle}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={labelStyle}>EOD</span>
+              <ClearButton client="marketstack" type="eod" />
+            </div>
+            <DurationSelector value={rules.marketstack.eod} onChange={(v) => updateRule('marketstack', 'eod', v)} />
+          </div>
+          <div style={{ ...rowStyle, borderBottom: 'none' }}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={labelStyle}>Intraday</span>
+              <ClearButton client="marketstack" type="intraday" />
+            </div>
+            <DurationSelector value={rules.marketstack.intraday} onChange={(v) => updateRule('marketstack', 'intraday', v)} />
+          </div>
+        </div>
+      )}
+
+      {/* Nasdaq Data Link Section */}
+      {rules.nasdaqDataLink && (
+        <div style={{
+          background: '#fff',
+          border: '1px solid #e0e0e0',
+          borderRadius: 8,
+          padding: 20,
+          marginBottom: 16
+        }}>
+          <h3 style={{ marginTop: 0, marginBottom: 16 }}>Nasdaq Data Link</h3>
+          <div style={{ ...rowStyle, borderBottom: 'none' }}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={labelStyle}>Dataset</span>
+              <ClearButton client="nasdaqDataLink" type="dataset" />
+            </div>
+            <DurationSelector value={rules.nasdaqDataLink.dataset} onChange={(v) => updateRule('nasdaqDataLink', 'dataset', v)} />
+          </div>
+        </div>
+      )}
 
       {/* Default Section */}
       <div style={{
