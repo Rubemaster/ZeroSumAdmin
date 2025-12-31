@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000'
+const API_BASE = import.meta.env.VITE_API_BASE || 'https://zerosumserver.onrender.com'
 
 const US_STATES = [
   { code: 'AL', name: 'Alabama' }, { code: 'AK', name: 'Alaska' }, { code: 'AZ', name: 'Arizona' },
